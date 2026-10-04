@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import streamlit; print\\(streamlit.__version__\\)\")",
+      "Bash(streamlit run *)",
+      "PowerShell(Start-Sleep -Seconds 8; try { $r = Invoke-WebRequest -Uri \"http://localhost:8501\" -UseBasicParsing -TimeoutSec 5; \"STATUS: \" + $r.StatusCode } catch { \"ERROR: \" + $_.Exception.Message })",
+      "Bash(python *)",
+      "Bash(curl -s -o /tmp/piraon_home.html -w \"HTTP:%{http_code}\\\\n\" http://localhost:8765/)",
+      "Bash(curl -s \"http://localhost:8765/_stcore/health\")",
+      "Bash(curl -s \"http://localhost:8765/_stcore/stream\" -m 3)",
+      "Bash(ps -W)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(gh auth *)"
+    ]
+  }
+}

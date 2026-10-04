@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.DS_Store
+.idea/
+.vscode/
+
+# Non-anonymized / internal source files — never publish
+df_flat_siyau_no_ID.xlsx
+df_neemanim_no_id.xlsx
+presentation_redesigned_30.6.2026.pptx
+*.pdf
