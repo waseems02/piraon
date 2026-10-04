@@ -3,13 +3,9 @@ import pandas as pd
 
 
 CASE_COLS_DISPLAY = {
-    "num_tik": "מספר תיק",
-    "year": "שנת פתיחה",
-    "d_tzav_ptichat_halichim": "תאריך פתיחת הליכים",
-    "d_tzav_shikum": "תאריך צו שיקום",
+    "neeman_2": "נאמן",
     "duration_stage1_months": "משך שלב א' (חודשים)",
     "mahoz": "מחוז",
-    "city": "עיר",
     "gender_label": "מגדר",
     "age_bin": "קבוצת גיל",
     "sector_label": "מגזר",
@@ -18,8 +14,6 @@ CASE_COLS_DISPLAY = {
     "status_d_15032026": "סטטוס",
     "outcome": "תוצאה",
     "sibat_sgira_kidud_c": "סיבת סגירה",
-    "neeman_2": "נאמן",
-    "first_payment": "תשלום ראשון",
     "income_salery_bin": "קבוצת שכר",
 }
 
@@ -47,37 +41,32 @@ def _render_cases(df: pd.DataFrame):
         return
 
     st.markdown("**פילטרים ייעודיים לטבלה**")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        cities = ["הכל"] + sorted(df["city"].dropna().unique().tolist())
-        sel_city = st.selectbox("עיר", cities, key="dt_city")
-    with col2:
         outcomes = ["הכל"] + sorted(df["outcome"].dropna().unique().tolist())
         sel_out = st.selectbox("תוצאה", outcomes, key="dt_out")
+    with col2:
+        mahozot = ["הכל"] + sorted(df["mahoz"].dropna().unique().tolist())
+        sel_mahoz = st.selectbox("מחוז", mahozot, key="dt_mahoz")
     with col3:
         min_dur, max_dur = 0, 100
         if df["duration_stage1_months"].notna().any():
             max_dur = int(df["duration_stage1_months"].max()) + 1
         dur_range = st.slider("טווח משך שלב א' (חודשים)", 0, max_dur, (0, max_dur), key="dt_dur")
-    with col4:
-        max_pay = int(df["first_payment"].max()) if len(df) else 0
-        pay_range = st.slider("טווח תשלום ראשון", 0, max(max_pay, 1), (0, max(max_pay, 1)), key="dt_pay")
 
     sub = df.copy()
-    if sel_city != "הכל":
-        sub = sub[sub["city"] == sel_city]
     if sel_out != "הכל":
         sub = sub[sub["outcome"] == sel_out]
+    if sel_mahoz != "הכל":
+        sub = sub[sub["mahoz"] == sel_mahoz]
     sub = sub[(sub["duration_stage1_months"].fillna(-1).between(dur_range[0], dur_range[1])) |
               sub["duration_stage1_months"].isna()]
-    sub = sub[sub["first_payment"].between(pay_range[0], pay_range[1])]
 
-    q = st.text_input("חיפוש חופשי (עיר / נאמן / סטטוס / תוצאה)", key="dt_q")
+    q = st.text_input("חיפוש חופשי (נאמן / סטטוס / תוצאה)", key="dt_q")
     if q:
         mask = (
-            sub["city"].fillna("").str.contains(q, na=False)
-            | sub["neeman_2"].fillna("").str.contains(q, na=False)
+            sub["neeman_2"].fillna("").str.contains(q, na=False)
             | sub["status_d_15032026"].fillna("").str.contains(q, na=False)
             | sub["outcome"].fillna("").str.contains(q, na=False)
         )
@@ -92,20 +81,9 @@ def _render_cases(df: pd.DataFrame):
         hide_index=True,
         height=360,
         column_config={
-            "מספר תיק": st.column_config.NumberColumn("מספר תיק", format="%d"),
-            "שנת פתיחה": st.column_config.NumberColumn("שנת פתיחה", format="%d"),
             "משך שלב א' (חודשים)": st.column_config.NumberColumn(
                 "משך שלב א' (חודשים)", format="%.1f"),
-            "תשלום ראשון": st.column_config.NumberColumn("תשלום ראשון", format="%d ₪"),
-            "תאריך פתיחת הליכים": st.column_config.DateColumn("תאריך פתיחת הליכים"),
-            "תאריך צו שיקום": st.column_config.DateColumn("תאריך צו שיקום"),
         },
-    )
-    st.download_button(
-        "הורדת התצוגה כ־CSV",
-        display.to_csv(index=False).encode("utf-8-sig"),
-        "cases_filtered.csv",
-        "text/csv",
     )
 
 
@@ -134,19 +112,16 @@ def _render_neemanim(df_n: pd.DataFrame):
         "full_name_neeman", "total_valid_cases", "dropout_rate_full", "dropout_rate_2020",
         "pct_150", "pct_siyua", "pct_arab",
         "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב",
-        "z_dropout_full", "rank_change", "notable_shift",
     ]
     show = sub[display_cols].copy()
     for c in ["dropout_rate_full", "dropout_rate_2020", "pct_150", "pct_siyua", "pct_arab",
               "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]:
         show[c] = (show[c] * 100).round(1)
-    show["z_dropout_full"] = show["z_dropout_full"].round(2)
 
     show.columns = [
         "נאמן", "תיקים", "% ביטול כללי", "% ביטול 2020",
         "% תשלום 150", "% סיוע", "% ערבי",
         "% ב\"ש", "% חיפה", "% ירושלים", "% ת\"א",
-        "Z", "Δ דירוג", "שינוי מובהק",
     ]
 
     st.dataframe(
@@ -158,10 +133,4 @@ def _render_neemanim(df_n: pd.DataFrame):
                 "% ביטול 2020", format="%.1f%%", min_value=0, max_value=100),
             "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
         },
-    )
-    st.download_button(
-        "הורדת התצוגה כ־CSV",
-        show.to_csv(index=False).encode("utf-8-sig"),
-        "neemanim_filtered.csv",
-        "text/csv",
     )

@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from data_loader import empty_state
-from ui import section, styled_dataframe
+from ui import section, styled_dataframe, wrap_x_labels
 
 
 DIMENSIONS = {
@@ -130,6 +130,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
             elif view == "chart":
                 fig = px.bar(comp, x=dim_label, y="%", color="קבוצה", barmode="group", text="%")
                 fig.update_layout(height=290)
+                wrap_x_labels(fig)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 pivot = comp.pivot(index=dim_label, columns="קבוצה", values="%").fillna(0)
@@ -164,6 +165,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     fig = px.bar(bucket_df, x="קבוצת תשלום", y="תיקים",
                                  text="תיקים", color="קבוצת תשלום")
                     fig.update_layout(height=260, showlegend=False, xaxis_title="")
+                    wrap_x_labels(fig)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     styled_dataframe(bucket_df, column_config={

@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from data_loader import empty_state
-from ui import section, styled_dataframe, download_button
+from ui import section, styled_dataframe, wrap_x_labels
 
 
 DIMENSIONS = {
@@ -62,6 +62,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                              hover_data=["תיקים", "ביטולים"],
                              color_continuous_scale="Reds")
                 fig.update_layout(height=300, xaxis_title="", coloraxis_showscale=False)
+                wrap_x_labels(fig)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 styled_dataframe(agg, column_config={
@@ -120,7 +121,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                              hover_data=["תיקים", "ביטולים"],
                              color_continuous_scale="Reds")
                 fig.update_layout(height=300, xaxis_title="", coloraxis_showscale=False,
-                                  xaxis_tickangle=-40)
+                                  xaxis_tickangle=0)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 styled_dataframe(top, column_config={
@@ -129,4 +130,3 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
                     "ביטולים": st.column_config.NumberColumn("ביטולים", format="%d"),
                 })
-                download_button(top, "dropouts_by_neeman.csv", key="dr_dl")
