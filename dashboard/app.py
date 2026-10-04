@@ -523,16 +523,22 @@ TAB_ITEMS = [
     ("🔀", "טבלת הצלבה"),
     ("📋", "טבלת נתונים"),
 ]
-tab_labels = [f"{icon}  {name}" for icon, name in TAB_ITEMS]
-_tab_name_by_label = {f"{icon}  {name}": name for icon, name in TAB_ITEMS}
+
+if "selected_tab" not in st.session_state:
+    st.session_state.selected_tab = TAB_ITEMS[0][1]
 
 st.sidebar.header("קטגוריות")
-_selected_label = st.sidebar.radio(
-    "בחירת קטגוריה",
-    tab_labels,
-    label_visibility="collapsed",
-)
-selected_tab = _tab_name_by_label[_selected_label]
+for _icon, _name in TAB_ITEMS:
+    _is_active = st.session_state.selected_tab == _name
+    if st.sidebar.button(
+        f"{_icon}  {_name}",
+        key=f"nav_{_name}",
+        use_container_width=True,
+        type="primary" if _is_active else "secondary",
+    ):
+        st.session_state.selected_tab = _name
+        st.rerun()
+selected_tab = st.session_state.selected_tab
 
 st.sidebar.markdown("---")
 st.sidebar.header("סינון גלובלי")
