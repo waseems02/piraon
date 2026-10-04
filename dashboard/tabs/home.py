@@ -129,7 +129,7 @@ def render(df_full: pd.DataFrame, df_neemanim: pd.DataFrame):
     html = dedent("""\
 <div class="home-content">
 <h1 class="home-title">חדלות פירעון <span class="accent">בישראל</span></h1>
-<div class="home-subtitle">דאשבורד אינטרקטיבי חדל"פ</div>
+<div class="home-subtitle">דאשבורד אינטראקטיבי חדל"פ</div>
 <div class="home-divider"></div>
 <p class="home-tagline">ניתוח מקיף של הליכי חדלות פירעון — מפתיחת התיק ועד לסגירתו, לאורך כל שלבי המערכת.</p>
 <div class="home-years">2020 — 2021 — 2022</div>
