@@ -295,62 +295,54 @@ div[data-testid="stSegmentedControl"] label span.material-symbols-rounded {
     font-weight: 700;
     margin-top: 8px;
 }
-/* Sidebar category radio — rendered as pill buttons (no circles) */
-section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
-    gap: 10px !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-section[data-testid="stSidebar"] label[data-baseweb="radio"] {
+/* Sidebar category buttons — pill style, no circles, obvious active state */
+section[data-testid="stSidebar"] div[data-testid="stButton"] { margin-bottom: 8px !important; }
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
     width: 100% !important;
-    padding: 11px 14px !important;
+    padding: 12px 16px !important;
     background: #ffffff !important;
     border: 1px solid var(--line) !important;
     border-radius: 12px !important;
-    cursor: pointer !important;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
-    box-shadow: 0 1px 3px rgba(31,78,121,0.06) !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    direction: rtl !important;
-}
-section[data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-    background: var(--brand-light) !important;
-    border-color: var(--brand-2) !important;
-    transform: translateX(-3px);
-    box-shadow: 0 4px 12px rgba(31,78,121,0.14) !important;
-}
-/* Hide the radio circle + native input */
-section[data-testid="stSidebar"] label[data-baseweb="radio"] > div:first-child,
-section[data-testid="stSidebar"] label[data-baseweb="radio"] input {
-    display: none !important;
-}
-/* Label text */
-section[data-testid="stSidebar"] label[data-baseweb="radio"] > div {
-    width: 100% !important;
-    font-weight: 600 !important;
     color: var(--ink) !important;
+    font-weight: 600 !important;
     font-size: 1.03rem !important;
     direction: rtl !important;
     text-align: right !important;
+    justify-content: flex-end !important;
     line-height: 1.4 !important;
+    box-shadow: 0 1px 3px rgba(31,78,121,0.06) !important;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease !important;
 }
-section[data-testid="stSidebar"] label[data-baseweb="radio"] p {
-    margin: 0 !important;
-    color: var(--ink) !important;
-    font-weight: 600 !important;
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+    background: var(--brand-light) !important;
+    border-color: var(--brand-2) !important;
+    color: var(--brand) !important;
+    transform: translateX(-3px);
+    box-shadow: 0 4px 12px rgba(31,78,121,0.14) !important;
 }
-/* Selected state */
-section[data-testid="stSidebar"] label[data-baseweb="radio"]:has(input:checked) {
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button:focus:not(:active) {
+    border-color: var(--brand-2) !important;
+    box-shadow: 0 0 0 3px rgba(58,143,183,0.18) !important;
+}
+/* Active (primary) button = currently selected tab */
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
     background: linear-gradient(135deg, var(--brand), var(--brand-2)) !important;
-    border-color: var(--brand) !important;
-    box-shadow: 0 4px 14px rgba(31,78,121,0.30) !important;
-}
-section[data-testid="stSidebar"] label[data-baseweb="radio"]:has(input:checked) > div,
-section[data-testid="stSidebar"] label[data-baseweb="radio"]:has(input:checked) p {
+    border: 1px solid var(--brand) !important;
     color: #ffffff !important;
     font-weight: 700 !important;
+    box-shadow: 0 4px 14px rgba(31,78,121,0.30) !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, var(--brand), var(--brand-2)) !important;
+    color: #ffffff !important;
+    transform: translateX(-3px);
+    box-shadow: 0 6px 18px rgba(31,78,121,0.38) !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {
+    margin: 0 !important;
+    color: inherit !important;
+    font-weight: inherit !important;
+    font-size: inherit !important;
 }
 /* Prevent tab / column content from clipping absolute-positioned icons */
 [data-testid="stHorizontalBlock"],
