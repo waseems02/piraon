@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from data_loader import empty_state
-from ui import section, styled_dataframe
+from ui import section, styled_dataframe, wrap_x_labels
 
 
 DIMENSIONS = {
@@ -59,6 +59,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                              text="ערך", hover_data=["תיקים"])
                 fig.update_layout(height=300, xaxis_title="", yaxis_title=y_title,
                                   legend_title="תוצאה")
+                wrap_x_labels(fig)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 pivot = ct.pivot(index=dim, columns="outcome", values="ערך").fillna(0)
@@ -94,6 +95,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 fig = px.bar(comp, x=compare_dim_label, y="%", color="תוצאה",
                              barmode="group", text="%")
                 fig.update_layout(height=280)
+                wrap_x_labels(fig)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 pivot = comp.pivot(index=compare_dim_label, columns="תוצאה", values="%").fillna(0)
@@ -122,6 +124,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     fig = px.bar(agg, x="תוצאה", y="חציון", text="חציון", color="תוצאה")
                     fig.update_layout(showlegend=False, height=250,
                                       yaxis_title="חודשים", xaxis_title="")
+                    wrap_x_labels(fig)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     styled_dataframe(agg)

@@ -118,20 +118,6 @@ def load_neemanim() -> pd.DataFrame:
             agg[m] = 0.0
         agg[m] = agg[m].fillna(0.0)
 
-    def _z(s: pd.Series) -> pd.Series:
-        mu = s.mean()
-        sd = s.std(ddof=0)
-        return (s - mu) / sd if sd else pd.Series(0.0, index=s.index)
-
-    agg["z_dropout_full"] = _z(agg["dropout_rate_full"])
-    agg["z_dropout_2020"] = _z(agg["dropout_rate_2020"])
-    agg["z_diff"] = agg["z_dropout_full"] - agg["z_dropout_2020"]
-
-    agg["rank_full"] = agg["dropout_rate_full"].rank(ascending=False, method="min")
-    agg["rank_2020"] = agg["dropout_rate_2020"].rank(ascending=False, method="min")
-    agg["rank_change"] = agg["rank_2020"] - agg["rank_full"]
-    agg["notable_shift"] = agg["z_diff"].abs() > 1.0
-
     return agg
 
 

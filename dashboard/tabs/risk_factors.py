@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from data_loader import empty_state
-from ui import section, styled_dataframe
+from ui import section, styled_dataframe, wrap_x_labels
 
 
 DIMENSIONS = {
@@ -107,6 +107,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     fig = px.bar(comp_df, x="קבוצה", y="% ביטול", text="% ביטול",
                                  color="קבוצה")
                     fig.update_layout(showlegend=False, height=250, xaxis_title="")
+                    wrap_x_labels(fig)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.dataframe(pd.DataFrame({

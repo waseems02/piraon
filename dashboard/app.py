@@ -5,7 +5,7 @@ import streamlit as st
 import plotly.io as pio
 
 from data_loader import load_flat, load_neemanim, apply_filters
-from tabs import home, overview, dropouts, completions, risk_factors, durations, trustees, data_table
+from tabs import home, overview, dropouts, completions, risk_factors, durations, trustees, data_table, crosstab
 
 
 ISRAEL_IMAGE_PATH = Path(__file__).resolve().parent / "Israel_image.jpg"
@@ -46,25 +46,20 @@ html, body, [class*="css"] {
 section[data-testid="stSidebar"] {
     direction: rtl;
     text-align: right;
-    background:
-        radial-gradient(circle 90px at 20% 8%, rgba(31,78,121,0.11), transparent 70%),
-        radial-gradient(circle 110px at 80% 22%, rgba(58,143,183,0.10), transparent 70%),
-        radial-gradient(circle 65px at 30% 45%, rgba(31,78,121,0.09), transparent 70%),
-        radial-gradient(circle 120px at 75% 60%, rgba(58,143,183,0.09), transparent 70%),
-        radial-gradient(circle 70px at 25% 78%, rgba(31,78,121,0.10), transparent 70%),
-        radial-gradient(circle 90px at 85% 90%, rgba(58,143,183,0.08), transparent 70%),
-        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
-    border-left: 1px solid var(--line);
+    background: rgba(255,255,255,0.35) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-left: 1px solid rgba(31,78,121,0.12);
     box-shadow: -2px 0 12px rgba(0,0,0,0.04);
 }
 section[data-testid="stSidebar"] > div { background: transparent !important; }
-/* Wider, roomier sidebar */
+/* Roomier sidebar */
 section[data-testid="stSidebar"] {
-    width: 340px !important;
-    min-width: 340px !important;
+    width: 290px !important;
+    min-width: 290px !important;
 }
 section[data-testid="stSidebar"] > div:first-child {
-    padding: 1.6rem 1.4rem 2rem 1.4rem !important;
+    padding: 1.4rem 1.1rem 1.8rem 1.1rem !important;
 }
 section[data-testid="stSidebar"] [data-testid="stHeading"] {
     margin-top: 0.4rem !important;
@@ -308,7 +303,7 @@ section[data-testid="stSidebar"] div[data-testid="stRadio"] > div {
 }
 section[data-testid="stSidebar"] label[data-baseweb="radio"] {
     width: 100% !important;
-    padding: 13px 18px !important;
+    padding: 11px 14px !important;
     background: #ffffff !important;
     border: 1px solid var(--line) !important;
     border-radius: 12px !important;
@@ -378,16 +373,16 @@ CORNER_CSS = """
 <style>
 .israel-corner {
     position: fixed;
-    top: 14px;
-    left: 18px;
-    width: 72px;
-    height: 72px;
+    top: 72px;
+    left: 24px;
+    width: 108px;
+    height: 108px;
     z-index: 9999;
     border: 1px solid rgba(31,78,121,0.15);
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
     background: #ffffff;
-    box-shadow: 0 4px 14px rgba(31,78,121,0.15), 0 0 0 4px rgba(255,255,255,0.6);
+    box-shadow: 0 6px 18px rgba(31,78,121,0.18), 0 0 0 4px rgba(255,255,255,0.6);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .israel-corner:hover {
@@ -447,9 +442,9 @@ CORNER_CSS = """
 
 .stApp > header,
 header[data-testid="stHeader"] {
-    background: rgba(255,255,255,0.6) !important;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: transparent !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
 }
 [data-testid="stDecoration"] { display: none !important; }
 /* Ensure the sidebar expand/collapse chevrons stay visible and tinted */
@@ -467,7 +462,10 @@ header[data-testid="stHeader"] {
     color: var(--brand) !important;
     opacity: 1 !important;
 }
-.stApp { background: transparent !important; }
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+section.main { background: transparent !important; }
 .main .block-container,
 [data-testid="stAppViewContainer"] .main .block-container,
 section.main > div.block-container {
@@ -490,7 +488,7 @@ section.main > div.block-container {
   <div class="bubble b10"></div>
 </div>
 """
-st.markdown(CORNER_CSS + ISRAEL_FLAG_HTML, unsafe_allow_html=True)
+st.markdown(CORNER_CSS, unsafe_allow_html=True)
 
 
 PLOTLY_TEMPLATE = pio.templates["plotly_white"]
@@ -504,7 +502,7 @@ PLOTLY_TEMPLATE.layout.plot_bgcolor = "#ffffff"
 PLOTLY_TEMPLATE.layout.margin = dict(t=50, r=30, l=30, b=60, pad=6)
 PLOTLY_TEMPLATE.layout.autosize = True
 PLOTLY_TEMPLATE.layout.uniformtext = dict(mode="hide", minsize=10)
-PLOTLY_TEMPLATE.layout.xaxis = dict(automargin=True, tickfont=dict(size=12))
+PLOTLY_TEMPLATE.layout.xaxis = dict(automargin=True, tickfont=dict(size=12), tickangle=0)
 PLOTLY_TEMPLATE.layout.yaxis = dict(automargin=True, tickfont=dict(size=12))
 PLOTLY_TEMPLATE.layout.legend = dict(font=dict(size=12))
 pio.templates.default = "plotly_white"
@@ -522,6 +520,7 @@ TAB_ITEMS = [
     ("⚠️", "גורמי סיכון"),
     ("⏱️", "משך ותשלומים"),
     ("👥", "נאמנים"),
+    ("🔀", "טבלת הצלבה"),
     ("📋", "טבלת נתונים"),
 ]
 tab_labels = [f"{icon}  {name}" for icon, name in TAB_ITEMS]
@@ -608,6 +607,9 @@ elif selected_tab == "משך ותשלומים":
 elif selected_tab == "נאמנים":
     _show_common_header()
     trustees.render(df_filtered, df_neemanim)
+elif selected_tab == "טבלת הצלבה":
+    _show_common_header()
+    crosstab.render(df_filtered, df_neemanim)
 elif selected_tab == "טבלת נתונים":
     _show_common_header()
     data_table.render(df_filtered, df_neemanim)

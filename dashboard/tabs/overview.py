@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 from data_loader import empty_state
-from ui import section, styled_dataframe
+from ui import section, styled_dataframe, wrap_x_labels
 
 
 DIMENSIONS = {
@@ -61,6 +61,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 if chart_type == "עמודות":
                     fig = px.bar(counts, x=dim_label, y="תיקים", text="תיקים", color=dim_label)
                     fig.update_layout(showlegend=False, height=300)
+                    wrap_x_labels(fig)
                 else:
                     fig = px.pie(counts, names=dim_label, values="תיקים", hole=0.4)
                     fig.update_traces(textposition="inside", textinfo="percent+label")
@@ -123,6 +124,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 fig = px.bar(o, x="תוצאה", y="תיקים",
                              text=o["אחוז %"].astype(str) + "%", color="תוצאה")
                 fig.update_layout(showlegend=False, height=290)
+                wrap_x_labels(fig)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 styled_dataframe(o, column_config={

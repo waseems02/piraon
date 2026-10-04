@@ -73,3 +73,43 @@ def download_button(df, filename: str, key: str = None):
         "text/csv",
         key=key,
     )
+
+
+def wrap_text(text, max_chars: int = 12) -> str:
+    if not isinstance(text, str) or len(text) <= max_chars:
+        return text
+    words = text.split()
+    if not words:
+        return text
+    lines, current = [], ""
+    for w in words:
+        candidate = f"{current} {w}".strip() if current else w
+        if len(candidate) <= max_chars or not current:
+            current = candidate
+        else:
+            lines.append(current)
+            current = w
+    if current:
+        lines.append(current)
+    return "<br>".join(lines)
+
+
+def wrap_x_labels(fig, max_chars: int = 12):
+    """Insert <br> into long string x-axis categories so labels stay horizontal."""
+    seen, order = set(), []
+    for tr in fig.data:
+        xs = getattr(tr, "x", None)
+        if xs is None:
+            continue
+        for v in xs:
+            if isinstance(v, str) and v not in seen:
+                seen.add(v)
+                order.append(v)
+    if not order:
+        return fig
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=order,
+        ticktext=[wrap_text(v, max_chars) for v in order],
+    )
+    return fig
