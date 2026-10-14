@@ -4,10 +4,16 @@ import numpy as np
 import streamlit as st
 
 DATA_DIR = Path(__file__).resolve().parent.parent
-# Names of neemanim and debtors are classified — the CSV replaces them with
-# anonymous identifiers (P001, P002, …). The full neemanim table is rebuilt
-# from this file so no real names ever reach the dashboard.
-FLAT_FILE = DATA_DIR / "df_flat_Anonymous.csv"
+
+# Data values come from the cleaned file (df_flat_clean_121026.xlsx).  The
+# anonymized CSV is still used to overlay P-code identifiers so no real
+# trustee or debtor names ever reach the dashboard.
+CLEAN_FILE = DATA_DIR / "df_flat_clean_121026.xlsx"
+CLEAN_SHEET = "נתונים"
+CLEAN_CACHE = DATA_DIR / ".df_flat_clean_121026.parquet"
+
+ANON_FILE = DATA_DIR / "df_flat_Anonymous.csv"
+ANON_CACHE = DATA_DIR / ".df_flat_Anonymous_overlay.parquet"
 
 CUTOFF_DATE = pd.Timestamp("2026-03-15")
 
@@ -17,22 +23,82 @@ SIYUA_MAP = {0: "ללא סיוע משפטי", 1: "עם סיוע משפטי"}
 NECHUT_MAP = {0: "ללא נכות כללית", 1: "עם נכות כללית"}
 
 CLOSED_STATUSES = {"סגור", "הפטר לאלתר", "הפטר", "ביטול"}
-DROPOUT_REASON = "ביטול לאחר צו שיקום"
-IMMEDIATE_DISCHARGE = "הפטר לאלתר"
 
 MAHOZ_COLS = ["mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]
 
+_ANON_OVERLAY_COLS = [
+    "num_tik",
+    "name_clean_anonymous",
+    "neeman1_anonymous",
+    "neeman2_anonymous",
+    "id_Anonymous",
+    "income_salery_bin",
+]
 
+_CLASSIFIED_COLS = ["neeman_1", "neeman_2", "id_hayav", "first_date", "last_date"]
+
+_OUTCOME_FROM_REASON = {
+    "הפטר לאלתר": "הפטר לאלתר",
+    "הפטר": "הפטר",
+    "ביטול לאחר צו שיקום": "ביטול לאחר צו שיקום",
+    "ביטול": "ביטול לפני צו שיקום",
+    "ניתן צו שיקום כלכלי": "פתוח — צו שיקום",
+    "ניתן צו פתיחת הליכים": "פתוח — שלב א'",
+}
+_OUTCOME_FROM_STATUS = {
+    "ניתן צו שיקום כלכלי": "פתוח — צו שיקום",
+    "ניתן צו פתיחת הליכים": "פתוח — שלב א'",
+}
+
+
+def _parquet_fresh(cache: Path, source: Path) -> bool:
+    return (
+        cache.exists()
+        and source.exists()
+        and cache.stat().st_mtime >= source.stat().st_mtime
+    )
+
+
+def _read_clean() -> pd.DataFrame:
+    # Parquet reads ~10x faster than Excel.  We transparently cache a parquet
+    # copy next to the source and rebuild whenever the source is newer.
+    if _parquet_fresh(CLEAN_CACHE, CLEAN_FILE):
+        return pd.read_parquet(CLEAN_CACHE)
+    df = pd.read_excel(CLEAN_FILE, sheet_name=CLEAN_SHEET)
+    df = df.drop(columns=[c for c in _CLASSIFIED_COLS if c in df.columns])
+    try:
+        df.to_parquet(CLEAN_CACHE, index=False)
+    except Exception:
+        pass
+    return df
+
+
+def _read_anon_overlay() -> pd.DataFrame:
+    if _parquet_fresh(ANON_CACHE, ANON_FILE):
+        return pd.read_parquet(ANON_CACHE)
+    anon = pd.read_csv(
+        ANON_FILE, encoding="utf-8-sig",
+        usecols=_ANON_OVERLAY_COLS, low_memory=False,
+    )
+    try:
+        anon.to_parquet(ANON_CACHE, index=False)
+    except Exception:
+        pass
+    return anon
+
+
+@st.cache_data(show_spinner="טוען נתונים…")
 def load_flat() -> pd.DataFrame:
-    df = pd.read_csv(FLAT_FILE, encoding="utf-8-sig", low_memory=False)
+    df = _read_clean()
+    anon = _read_anon_overlay()
+    df = df.merge(anon, on="num_tik", how="left")
+
+    df["neeman_2"] = df["name_clean_anonymous"]
+
     df["d_tzav_ptichat_halichim"] = pd.to_datetime(
         df["d_tzav_ptichat_halichim"], errors="coerce", dayfirst=True)
     df["d_tzav_shikum"] = pd.to_datetime(
         df["d_tzav_shikum"], errors="coerce", dayfirst=True)
-
-    # Aliases so downstream code (which pre-dates anonymization) keeps working:
-    # trustee display name = the anonymized P-code.
-    df["neeman_2"] = df["name_clean_anonymous"]
 
     df["gender_label"] = df["gender"].map(GENDER_MAP).fillna("לא ידוע")
     df["sector_label"] = df["is_arab"].map(SECTOR_MAP).fillna("לא ידוע")
@@ -47,41 +113,27 @@ def load_flat() -> pd.DataFrame:
 
     df["is_closed"] = df["status_d_15032026"].isin(CLOSED_STATUSES)
 
-    def outcome_bucket(row):
-        s = row["status_d_15032026"]
-        r = row["sibat_sgira_kidud_c"]
-        if s == "סגור":
-            if r == "הפטר לאלתר":
-                return "הפטר לאלתר"
-            if r == "ביטול לאחר צו שיקום":
-                return "ביטול לאחר צו שיקום"
-            if r == "ניתן צו שיקום כלכלי":
-                return "הפטר"
-            return "סגור (אחר)"
-        if s == "הפטר לאלתר":
-            return "הפטר לאלתר"
-        if s == "הפטר":
-            return "הפטר"
-        if s == "ביטול":
-            return "ביטול לאחר צו שיקום"
-        if s == "ניתן צו שיקום כלכלי":
-            return "פתוח — צו שיקום"
-        if s == "ניתן צו פתיחת הליכים":
-            return "פתוח — שלב א'"
-        return s
-    df["outcome"] = df.apply(outcome_bucket, axis=1)
+    outcome = df["sibat_sgira_kidud_c"].map(_OUTCOME_FROM_REASON)
+    outcome = outcome.fillna(df["status_d_15032026"].map(_OUTCOME_FROM_STATUS))
+    outcome = outcome.fillna(df["status_d_15032026"]).fillna("לא ידוע")
+    df["outcome"] = outcome
 
     df["is_immediate_discharge"] = df["outcome"] == "הפטר לאלתר"
-    df["is_dropout"] = df["outcome"] == "ביטול לאחר צו שיקום"
     df["is_hefter"] = df["outcome"] == "הפטר"
+    # "נשירה" per the legend / presentation = did NOT reach the shikum order
+    # (got_2shikum_bin == 0, equivalent to sibat_sgira_kidud_c == "ביטול").
+    # This yields Haifa 40.6%, matching the deck.  The old post-shikum-only
+    # definition gave 9.6% for Haifa and did not match the presentation.
+    df["is_dropout"] = df["outcome"] == "ביטול לפני צו שיקום"
+    df["is_post_shikum_cancel"] = df["outcome"] == "ביטול לאחר צו שיקום"
+    df["is_any_bitul"] = df["is_dropout"] | df["is_post_shikum_cancel"]
 
     return df
 
 
+@st.cache_data(show_spinner="מחשב נאמנים…")
 def load_neemanim() -> pd.DataFrame:
-    # Rebuilt from the anonymized flat file — the original neemanim table
-    # still contained real names, so we re-aggregate here so every metric is
-    # keyed by the P-code alone.
+    # load_flat() is cached, so this call is near-instant after first load.
     flat = load_flat()
     d = flat.dropna(subset=["name_clean_anonymous"]).copy()
 
@@ -122,7 +174,7 @@ def load_neemanim() -> pd.DataFrame:
 
 
 def apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
-    out = df.copy()
+    out = df
     if filters.get("years"):
         out = out[out["year"].isin(filters["years"])]
     if filters.get("mahoz"):

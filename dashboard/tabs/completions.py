@@ -36,7 +36,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     c1, c2, c3 = st.columns(3)
     c1.metric("% הפטר לאלתר", f"{imm_rate:.1f}%")
     c2.metric("% הפטר בסוף תכנית", f"{hef_rate:.1f}%")
-    c3.metric("% ביטול לאחר צו שיקום", f"{drop_rate:.1f}%")
+    c3.metric("% נשירה (לפני צו שיקום)", f"{drop_rate:.1f}%")
 
     st.markdown("---")
 

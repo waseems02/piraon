@@ -42,7 +42,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     c1.metric("סך תיקים", f"{total:,}")
     c2.metric("סגורים", f"{closed / total * 100:.1f}%" if total else "—")
     c3.metric("הפטר לאלתר", f"{immediate / total * 100:.1f}%" if total else "—")
-    c4.metric("ביטול לאחר צו שיקום", f"{dropouts / total * 100:.1f}%" if total else "—")
+    c4.metric("שיעור נשירה (לפני צו שיקום)", f"{dropouts / total * 100:.1f}%" if total else "—")
     c5.metric("חציון משך שלב א' (חודשים)",
               f"{median_stage1:.1f}" if pd.notna(median_stage1) else "—")
 

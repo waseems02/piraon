@@ -31,11 +31,11 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
         return
 
     baseline = df["is_dropout"].mean() * 100
-    st.metric("שיעור ביטול בסיס (בפילטר הנוכחי)", f"{baseline:.1f}%")
+    st.metric("שיעור נשירה בסיס (בפילטר הנוכחי)", f"{baseline:.1f}%")
 
     st.markdown("---")
 
-    with section("Cross-tab דו־מימדי — שיעור ביטול בכל שילוב", key="rf_cross") as (side, main, view):
+    with section("Cross-tab דו־מימדי — שיעור נשירה בכל שילוב", key="rf_cross") as (side, main, view):
         with side:
             d1_label = st.selectbox("מימד ראשון", list(DIMENSIONS.keys()), index=0, key="rf_d1")
             d2_label = st.selectbox("מימד שני", list(DIMENSIONS.keys()), index=1, key="rf_d2")
@@ -47,28 +47,28 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 d1, d2 = DIMENSIONS[d1_label], DIMENSIONS[d2_label]
                 agg = (
                     df.groupby([d1, d2])
-                    .agg(תיקים=("num_tik", "count"), ביטולים=("is_dropout", "sum"))
+                    .agg(תיקים=("num_tik", "count"), נשירות=("is_dropout", "sum"))
                     .reset_index()
                     .rename(columns={d1: d1_label, d2: d2_label})
                 )
-                agg["שיעור ביטול %"] = (agg["ביטולים"] / agg["תיקים"] * 100).round(1)
+                agg["שיעור נשירה %"] = (agg["נשירות"] / agg["תיקים"] * 100).round(1)
                 agg = agg[agg["תיקים"] >= min_n]
                 agg["פרופיל"] = agg[d1_label].astype(str) + " · " + agg[d2_label].astype(str)
-                agg = agg.sort_values("שיעור ביטול %", ascending=False)
+                agg = agg.sort_values("שיעור נשירה %", ascending=False)
                 if view == "chart":
-                    fig = px.bar(agg, x="שיעור ביטול %", y="פרופיל", orientation="h",
-                                 color="שיעור ביטול %", color_continuous_scale="Reds",
-                                 text="שיעור ביטול %", hover_data=["תיקים", "ביטולים"])
+                    fig = px.bar(agg, x="שיעור נשירה %", y="פרופיל", orientation="h",
+                                 color="שיעור נשירה %", color_continuous_scale="Reds",
+                                 text="שיעור נשירה %", hover_data=["תיקים", "נשירות"])
                     fig.add_vline(x=baseline, line_dash="dash", line_color="#1f4e79",
                                   annotation_text=f"בסיס {baseline:.1f}%")
                     fig.update_layout(height=max(260, 20 * len(agg)),
                                       coloraxis_showscale=False, yaxis_title="")
                     st.plotly_chart(fig, use_container_width=True)
                 else:
-                    table = agg[[d1_label, d2_label, "תיקים", "ביטולים", "שיעור ביטול %"]]
+                    table = agg[[d1_label, d2_label, "תיקים", "נשירות", "שיעור נשירה %"]]
                     styled_dataframe(table, column_config={
-                        "שיעור ביטול %": st.column_config.ProgressColumn(
-                            "שיעור ביטול %", format="%.1f%%", min_value=0, max_value=100),
+                        "שיעור נשירה %": st.column_config.ProgressColumn(
+                            "שיעור נשירה %", format="%.1f%%", min_value=0, max_value=100),
                     })
 
     st.markdown("---")
@@ -96,22 +96,22 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 delta = prof_rate - baseline
                 c1, c2, c3 = st.columns(3)
                 c1.metric("תיקים בפרופיל", f"{len(subset):,}")
-                c2.metric("שיעור ביטול בפרופיל", f"{prof_rate:.1f}%",
+                c2.metric("שיעור נשירה בפרופיל", f"{prof_rate:.1f}%",
                           f"{delta:+.1f}pp מול בסיס")
                 c3.metric("בסיס (כל הפילטר)", f"{baseline:.1f}%")
                 if view == "chart":
                     comp_df = pd.DataFrame({
                         "קבוצה": ["בסיס", "פרופיל שנבחר"],
-                        "% ביטול": [round(baseline, 1), round(prof_rate, 1)],
+                        "% נשירה": [round(baseline, 1), round(prof_rate, 1)],
                     })
-                    fig = px.bar(comp_df, x="קבוצה", y="% ביטול", text="% ביטול",
+                    fig = px.bar(comp_df, x="קבוצה", y="% נשירה", text="% נשירה",
                                  color="קבוצה")
                     fig.update_layout(showlegend=False, height=250, xaxis_title="")
                     wrap_x_labels(fig)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.dataframe(pd.DataFrame({
-                        "מדד": ["תיקים", "ביטולים", "% ביטול פרופיל", "% ביטול בסיס", "פער (pp)"],
+                        "מדד": ["תיקים", "נשירות", "% נשירה פרופיל", "% נשירה בסיס", "פער (pp)"],
                         "ערך": [len(subset), int(subset["is_dropout"].sum()),
                                 round(prof_rate, 1), round(baseline, 1), round(delta, 1)],
                     }), use_container_width=True, hide_index=True)

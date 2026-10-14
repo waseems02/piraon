@@ -20,9 +20,10 @@ COLOR_OPTIONS = {
 
 
 def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
-    st.subheader("נאמנים — שיעורי ביטול")
+    st.subheader("נאמנים — שיעורי נשירה")
     st.caption(
-        "דירוג נאמנים לפי שיעור הביטול בתיקיהם. ניתן לסנן לפי מינימום תיקים ולחפש לפי שם."
+        "דירוג נאמנים לפי שיעור הנשירה (ביטול לפני צו שיקום) בתיקיהם. "
+        "ניתן לסנן לפי מינימום תיקים ולחפש לפי שם."
     )
 
     if df_neemanim.empty:
@@ -39,13 +40,13 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("סך נאמנים", f"{len(df_neemanim):,}")
     k2.metric("סך תיקים", f"{overall_cases:,}")
-    k3.metric("חציון % ביטול", f"{overall_median:.1f}%")
-    k4.metric("ממוצע % ביטול", f"{overall_mean:.1f}%")
-    k5.metric("% ביטול מקסימלי", f"{overall_max:.1f}%")
+    k3.metric("חציון % נשירה", f"{overall_median:.1f}%")
+    k4.metric("ממוצע % נשירה", f"{overall_mean:.1f}%")
+    k5.metric("% נשירה מקסימלי", f"{overall_max:.1f}%")
 
     st.markdown("---")
 
-    with section("דירוג נאמנים לפי שיעור ביטול", key="tr_rank") as (side, main, view):
+    with section("דירוג נאמנים לפי שיעור נשירה", key="tr_rank") as (side, main, view):
         with side:
             min_cases = st.slider("מינימום תיקים", 1, max_cases, 30, step=5, key="tr_min")
             top_n = st.slider("Top N להצגה", 10, 40, 20, step=5, key="tr_topn")
@@ -58,24 +59,24 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
         median_pct = dn["dropout_rate_full"].median() * 100 if len(dn) else 0
 
         top = dn.nlargest(top_n, "dropout_rate_full").copy()
-        top["% ביטול"] = (top["dropout_rate_full"] * 100).round(1)
+        top["% נשירה"] = (top["dropout_rate_full"] * 100).round(1)
         top["תיקים"] = top["total_valid_cases"]
         top["נאמן"] = top["full_name_neeman"]
-        top = top.sort_values("% ביטול", ascending=False)
+        top = top.sort_values("% נשירה", ascending=False)
 
         with main:
             if dn.empty:
                 st.caption("אין נאמנים לפי הסינון.")
             elif view == "chart":
                 fig = px.bar(
-                    top, x="נאמן", y="% ביטול",
-                    text="% ביטול", color="% ביטול",
+                    top, x="נאמן", y="% נשירה",
+                    text="% נשירה", color="% נשירה",
                     color_continuous_scale=[
                         [0.0, "#3a8fb7"],
                         [0.5, "#e07b39"],
                         [1.0, "#c94f4f"],
                     ],
-                    hover_data={"תיקים": True, "נאמן": False, "% ביטול": ":.1f"},
+                    hover_data={"תיקים": True, "נאמן": False, "% נשירה": ":.1f"},
                 )
                 if len(dn) > 1 and median_pct > 0:
                     fig.add_hline(
@@ -95,7 +96,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     height=480,
                     coloraxis_showscale=False,
                     xaxis_title="",
-                    yaxis_title="שיעור ביטול (%)",
+                    yaxis_title="שיעור נשירה (%)",
                     bargap=0.28,
                     margin=dict(t=50, r=20, l=60, b=70),
                     plot_bgcolor="rgba(255,255,255,0.35)",
@@ -112,19 +113,19 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                table = top[["נאמן", "תיקים", "% ביטול"]].copy()
+                table = top[["נאמן", "תיקים", "% נשירה"]].copy()
                 st.dataframe(
                     table, use_container_width=True, hide_index=True, height=420,
                     column_config={
-                        "% ביטול": st.column_config.ProgressColumn(
-                            "% ביטול", format="%.1f%%", min_value=0, max_value=100),
+                        "% נשירה": st.column_config.ProgressColumn(
+                            "% נשירה", format="%.1f%%", min_value=0, max_value=100),
                         "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
                     },
                 )
 
     st.markdown("---")
 
-    with section("נאמנים לפי שיעור ביטול ומדדים נוספים", key="tr_scatter") as (side, main, view):
+    with section("נאמנים לפי שיעור נשירה ומדדים נוספים", key="tr_scatter") as (side, main, view):
         with side:
             min_cases2 = st.slider("מינימום תיקים", 1, max_cases, 30, step=5, key="tr_min2")
             x_label = st.selectbox("ציר X", list(X_OPTIONS.keys()), key="tr_x")
@@ -145,7 +146,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                                 "pct_150": ":.2f", "pct_siyua": ":.2f", "pct_arab": ":.2f"},
                     trendline="ols", trendline_color_override="#c94f4f",
                     color_continuous_scale="RdYlGn_r",
-                    labels={x_axis: x_label, "dropout_rate_full": "שיעור ביטול",
+                    labels={x_axis: x_label, "dropout_rate_full": "שיעור נשירה",
                             color_by: color_label_wrapped},
                 )
                 fig.update_traces(marker=dict(size=8, opacity=0.85, line=dict(width=0)),
@@ -173,9 +174,9 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
 
     st.markdown("---")
 
-    with section("המנבא החזק: % לקוחות ₪150 מול שיעור ביטול", key="tr_150") as (side, main, view):
+    with section("המנבא החזק: % לקוחות ₪150 מול שיעור נשירה", key="tr_150") as (side, main, view):
         color_options_150 = {
-            "שיעור ביטול": "dropout_rate_full",
+            "שיעור נשירה": "dropout_rate_full",
             "% ערבים": "pct_arab",
             "% סיוע משפטי": "pct_siyua",
         }
@@ -198,7 +199,7 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                     trendline="ols", trendline_color_override="#c94f4f",
                     color_continuous_scale="RdYlGn_r",
                     labels={"pct_150": "% לקוחות ₪150",
-                            "dropout_rate_full": "שיעור ביטול",
+                            "dropout_rate_full": "שיעור נשירה",
                             color_by_150: color_label_150},
                 )
                 fig.update_traces(marker=dict(size=7, opacity=0.8, line=dict(width=0)),
@@ -216,13 +217,13 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                            "pct_150", "dropout_rate_full"]].copy()
                 tbl["pct_150"] = (tbl["pct_150"] * 100).round(1)
                 tbl["dropout_rate_full"] = (tbl["dropout_rate_full"] * 100).round(1)
-                tbl.columns = ["נאמן", "תיקים", "% ₪150", "% ביטול"]
+                tbl.columns = ["נאמן", "תיקים", "% ₪150", "% נשירה"]
                 st.dataframe(
                     tbl.sort_values("% ₪150", ascending=False),
                     use_container_width=True, hide_index=True, height=330,
                     column_config={
-                        "% ביטול": st.column_config.ProgressColumn(
-                            "% ביטול", format="%.1f%%", min_value=0, max_value=100),
+                        "% נשירה": st.column_config.ProgressColumn(
+                            "% נשירה", format="%.1f%%", min_value=0, max_value=100),
                         "% ₪150": st.column_config.ProgressColumn(
                             "% ₪150", format="%.1f%%", min_value=0, max_value=100),
                     })
@@ -247,16 +248,16 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                   "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]:
             show[c] = (show[c] * 100).round(1)
         show.columns = [
-            "נאמן", "תיקים", "% ביטול כללי", "% ביטול 2020",
+            "נאמן", "תיקים", "% נשירה כללי", "% נשירה 2020",
             "% תשלום 150", "% סיוע", "% ערבי",
             "% ב\"ש", "% חיפה", "% ירושלים", "% ת\"א",
         ]
 
         with main:
             if view == "chart":
-                dist = show[["% ביטול כללי"]].dropna()
+                dist = show[["% נשירה כללי"]].dropna()
                 if not dist.empty:
-                    fig = px.histogram(dist, x="% ביטול כללי", nbins=30)
+                    fig = px.histogram(dist, x="% נשירה כללי", nbins=30)
                     fig.update_layout(height=280, bargap=0.05)
                     st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -265,10 +266,10 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                 st.dataframe(
                     show, use_container_width=True, hide_index=True, height=360,
                     column_config={
-                        "% ביטול כללי": st.column_config.ProgressColumn(
-                            "% ביטול כללי", format="%.1f%%", min_value=0, max_value=100),
-                        "% ביטול 2020": st.column_config.ProgressColumn(
-                            "% ביטול 2020", format="%.1f%%", min_value=0, max_value=100),
+                        "% נשירה כללי": st.column_config.ProgressColumn(
+                            "% נשירה כללי", format="%.1f%%", min_value=0, max_value=100),
+                        "% נשירה 2020": st.column_config.ProgressColumn(
+                            "% נשירה 2020", format="%.1f%%", min_value=0, max_value=100),
                         "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
                     })
 

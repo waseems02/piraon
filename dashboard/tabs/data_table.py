@@ -97,7 +97,7 @@ def _render_neemanim(df_n: pd.DataFrame):
         max_cases = int(df_n["total_valid_cases"].max())
         min_cases = st.slider("מינימום תיקים", 1, max_cases, 1, key="dt_n_min")
     with col2:
-        drop_range = st.slider("טווח שיעור ביטול (%)", 0, 100, (0, 100), key="dt_n_drop")
+        drop_range = st.slider("טווח שיעור נשירה (%)", 0, 100, (0, 100), key="dt_n_drop")
 
     sub = df_n[df_n["total_valid_cases"] >= min_cases].copy()
     sub = sub[(sub["dropout_rate_full"] * 100).between(drop_range[0], drop_range[1])]
@@ -119,7 +119,7 @@ def _render_neemanim(df_n: pd.DataFrame):
         show[c] = (show[c] * 100).round(1)
 
     show.columns = [
-        "נאמן", "תיקים", "% ביטול כללי", "% ביטול 2020",
+        "נאמן", "תיקים", "% נשירה כללי", "% נשירה 2020",
         "% תשלום 150", "% סיוע", "% ערבי",
         "% ב\"ש", "% חיפה", "% ירושלים", "% ת\"א",
     ]
@@ -127,10 +127,10 @@ def _render_neemanim(df_n: pd.DataFrame):
     st.dataframe(
         show, use_container_width=True, hide_index=True, height=360,
         column_config={
-            "% ביטול כללי": st.column_config.ProgressColumn(
-                "% ביטול כללי", format="%.1f%%", min_value=0, max_value=100),
-            "% ביטול 2020": st.column_config.ProgressColumn(
-                "% ביטול 2020", format="%.1f%%", min_value=0, max_value=100),
+            "% נשירה כללי": st.column_config.ProgressColumn(
+                "% נשירה כללי", format="%.1f%%", min_value=0, max_value=100),
+            "% נשירה 2020": st.column_config.ProgressColumn(
+                "% נשירה 2020", format="%.1f%%", min_value=0, max_value=100),
             "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
         },
     )
