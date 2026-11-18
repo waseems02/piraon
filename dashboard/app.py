@@ -1,8 +1,22 @@
 import base64
 from pathlib import Path
 
+import sys
+
 import streamlit as st
 import plotly.io as pio
+
+# Streamlit re-runs this script on every interaction but keeps imported
+# modules in memory.  After a data/code update a long-lived server can keep
+# running the old loader (it crashed looking for the removed 121026 file), so
+# drop stale project modules once and import them fresh.
+_DATA_VERSION = "211026"
+_loaded = sys.modules.get("data_loader")
+if _loaded is not None and getattr(_loaded, "DATA_VERSION", None) != _DATA_VERSION:
+    for _name in [n for n in sys.modules
+                  if n == "data_loader" or n == "tabs" or n.startswith("tabs.")]:
+        del sys.modules[_name]
+    st.cache_data.clear()
 
 from data_loader import load_flat, load_neemanim, apply_filters
 from tabs import home, overview, dropouts, completions, risk_factors, durations, trustees, data_table, crosstab
