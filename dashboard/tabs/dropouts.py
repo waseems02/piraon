@@ -107,10 +107,10 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
             q = st.text_input("חיפוש נאמן", key="dr_search")
             min_cases = st.slider("מינימום תיקים", 1, 200, 5, key="dr_neeman_min")
         top = (
-            df.groupby("neeman_2")
+            df.groupby("neeman")
             .agg(תיקים=("num_tik", "count"), נשירות=("is_dropout", "sum"))
             .reset_index()
-            .rename(columns={"neeman_2": "נאמן"})
+            .rename(columns={"neeman": "נאמן"})
         )
         top["שיעור נשירה %"] = (top["נשירות"] / top["תיקים"] * 100).round(1)
         if q:

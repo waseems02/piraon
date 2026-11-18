@@ -12,3 +12,9 @@ df_flat_siyau_no_ID.xlsx
 df_neemanim_no_id.xlsx
 presentation_redesigned_30.6.2026.pptx
 *.pdf
+df_flat_clean_211026.xlsx
+טבלת_התממה_*.xlsx
+# Old data files with private columns (removed from history 2026-11-18)
+df_flat_clean_121026.xlsx
+df_flat_Anonymous.csv
+.df_flat_*.parquet

@@ -5,15 +5,12 @@ import streamlit as st
 
 DATA_DIR = Path(__file__).resolve().parent.parent
 
-# Data values come from the cleaned file (df_flat_clean_121026.xlsx).  The
-# anonymized CSV is still used to overlay P-code identifiers so no real
-# trustee or debtor names ever reach the dashboard.
-CLEAN_FILE = DATA_DIR / "df_flat_clean_121026.xlsx"
+# The dashboard reads ONLY the anonymized file produced by
+# scripts/anonymize.py.  It contains no names, ID numbers, case numbers or
+# dates of birth — trustees are P###, debtors H#####, cases T#####.
+CLEAN_FILE = DATA_DIR / "df_flat_anon_211026.xlsx"
 CLEAN_SHEET = "נתונים"
-CLEAN_CACHE = DATA_DIR / ".df_flat_clean_121026.parquet"
-
-ANON_FILE = DATA_DIR / "df_flat_Anonymous.csv"
-ANON_CACHE = DATA_DIR / ".df_flat_Anonymous_overlay.parquet"
+CLEAN_CACHE = DATA_DIR / ".df_flat_anon_211026.parquet"
 
 CUTOFF_DATE = pd.Timestamp("2026-03-15")
 
@@ -26,16 +23,10 @@ CLOSED_STATUSES = {"סגור", "הפטר לאלתר", "הפטר", "ביטול"}
 
 MAHOZ_COLS = ["mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]
 
-_ANON_OVERLAY_COLS = [
-    "num_tik",
-    "name_clean_anonymous",
-    "neeman1_anonymous",
-    "neeman2_anonymous",
-    "id_Anonymous",
-    "income_salery_bin",
-]
-
-_CLASSIFIED_COLS = ["neeman_1", "neeman_2", "id_hayav", "first_date", "last_date"]
+# Defence in depth: raw identifier columns must never reach the UI, even if
+# someone points CLEAN_FILE at a raw file by mistake.
+_CLASSIFIED_COLS = ["num_tik", "id_hayav", "dob", "first_date", "last_date"]
+_REQUIRED_ANON_COLS = ["tik_code", "hayav_code", "neeman_1"]
 
 _OUTCOME_FROM_REASON = {
     "הפטר לאלתר": "הפטר לאלתר",
@@ -65,6 +56,10 @@ def _read_clean() -> pd.DataFrame:
     if _parquet_fresh(CLEAN_CACHE, CLEAN_FILE):
         return pd.read_parquet(CLEAN_CACHE)
     df = pd.read_excel(CLEAN_FILE, sheet_name=CLEAN_SHEET)
+    missing = [c for c in _REQUIRED_ANON_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"{CLEAN_FILE.name} is not the anonymized file "
+                         f"(missing {missing}) — run scripts/anonymize.py")
     df = df.drop(columns=[c for c in _CLASSIFIED_COLS if c in df.columns])
     try:
         df.to_parquet(CLEAN_CACHE, index=False)
@@ -73,27 +68,15 @@ def _read_clean() -> pd.DataFrame:
     return df
 
 
-def _read_anon_overlay() -> pd.DataFrame:
-    if _parquet_fresh(ANON_CACHE, ANON_FILE):
-        return pd.read_parquet(ANON_CACHE)
-    anon = pd.read_csv(
-        ANON_FILE, encoding="utf-8-sig",
-        usecols=_ANON_OVERLAY_COLS, low_memory=False,
-    )
-    try:
-        anon.to_parquet(ANON_CACHE, index=False)
-    except Exception:
-        pass
-    return anon
-
-
 @st.cache_data(show_spinner="טוען נתונים…")
 def load_flat() -> pd.DataFrame:
     df = _read_clean()
-    anon = _read_anon_overlay()
-    df = df.merge(anon, on="num_tik", how="left")
 
-    df["neeman_2"] = df["name_clean_anonymous"]
+    # Tabs count cases with "num_tik"; it now holds the anonymous T-code.
+    df["num_tik"] = df["tik_code"]
+    # The trustee a case is attributed to: the latest one assigned
+    # (neeman_2 when the trustee was replaced, otherwise neeman_1).
+    df["neeman"] = df["neeman_2"].fillna(df["neeman_1"])
 
     df["d_tzav_ptichat_halichim"] = pd.to_datetime(
         df["d_tzav_ptichat_halichim"], errors="coerce", dayfirst=True)
@@ -135,22 +118,22 @@ def load_flat() -> pd.DataFrame:
 def load_neemanim() -> pd.DataFrame:
     # load_flat() is cached, so this call is near-instant after first load.
     flat = load_flat()
-    d = flat.dropna(subset=["name_clean_anonymous"]).copy()
+    d = flat.dropna(subset=["neeman"]).copy()
 
-    agg = d.groupby("name_clean_anonymous").agg(
+    agg = d.groupby("neeman").agg(
         total_valid_cases=("num_tik", "count"),
         bitul_cases_full=("is_dropout", "sum"),
         pct_150=("first_payment", lambda s: (s == 150).mean()),
         pct_siyua=("is_siyua_bin", "mean"),
         pct_arab=("is_arab", "mean"),
-    ).reset_index().rename(columns={"name_clean_anonymous": "full_name_neeman"})
+    ).reset_index().rename(columns={"neeman": "full_name_neeman"})
     agg["dropout_rate_full"] = agg["bitul_cases_full"] / agg["total_valid_cases"]
 
     d2020 = d[d["year"] == 2020]
-    r2020 = d2020.groupby("name_clean_anonymous").agg(
+    r2020 = d2020.groupby("neeman").agg(
         cases_2020=("num_tik", "count"),
         bitul_2020=("is_dropout", "sum"),
-    ).reset_index().rename(columns={"name_clean_anonymous": "full_name_neeman"})
+    ).reset_index().rename(columns={"neeman": "full_name_neeman"})
     r2020["dropout_rate_2020"] = np.where(
         r2020["cases_2020"] > 0, r2020["bitul_2020"] / r2020["cases_2020"], np.nan)
     agg = agg.merge(
@@ -159,11 +142,11 @@ def load_neemanim() -> pd.DataFrame:
     )
 
     mahoz_share = pd.crosstab(
-        d["name_clean_anonymous"], d["mahoz"], normalize="index"
+        d["neeman"], d["mahoz"], normalize="index"
     )
     mahoz_share.columns = [f"mahoz_{c}" for c in mahoz_share.columns]
     mahoz_share = mahoz_share.reset_index().rename(
-        columns={"name_clean_anonymous": "full_name_neeman"})
+        columns={"neeman": "full_name_neeman"})
     agg = agg.merge(mahoz_share, on="full_name_neeman", how="left")
     for m in MAHOZ_COLS:
         if m not in agg.columns:

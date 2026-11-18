@@ -3,7 +3,7 @@ import pandas as pd
 
 
 CASE_COLS_DISPLAY = {
-    "neeman_2": "נאמן",
+    "neeman": "נאמן",
     "duration_stage1_months": "משך שלב א' (חודשים)",
     "mahoz": "מחוז",
     "gender_label": "מגדר",
@@ -66,7 +66,7 @@ def _render_cases(df: pd.DataFrame):
     q = st.text_input("חיפוש חופשי (נאמן / סטטוס / תוצאה)", key="dt_q")
     if q:
         mask = (
-            sub["neeman_2"].fillna("").str.contains(q, na=False)
+            sub["neeman"].fillna("").str.contains(q, na=False)
             | sub["status_d_15032026"].fillna("").str.contains(q, na=False)
             | sub["outcome"].fillna("").str.contains(q, na=False)
         )
