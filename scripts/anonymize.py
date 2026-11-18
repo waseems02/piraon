@@ -1,7 +1,10 @@
 """Build the anonymized dataset and the anonymization key (טבלת התממה).
 
 Input  : df_flat_clean_211026.xlsx            (raw — contains real identifiers)
+         df_neemanim_no_id.xlsx               (optional — pre-computed trustees table,
+                                               real names in full_name_neeman)
 Outputs: df_flat_anon_211026.xlsx             (safe to share / used by the dashboard)
+         df_neemanim_anon_211026.xlsx         (safe to share — only if neemanim input present)
          טבלת_התממה_211026.xlsx               (the KEY — private, never share/commit)
 
 Codes
@@ -16,15 +19,23 @@ Removed outright: dob (age columns remain), first_date, last_date.
 
 Run from the project root:  py -3.13 scripts/anonymize.py
 """
+import io
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+# Hebrew filenames in print() crash on the Windows cp1252 console.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "df_flat_clean_211026.xlsx"
 OUT = ROOT / "df_flat_anon_211026.xlsx"
 KEY = ROOT / "טבלת_התממה_211026.xlsx"
+NEEMANIM_RAW = ROOT / "df_neemanim_no_id.xlsx"
+NEEMANIM_OUT = ROOT / "df_neemanim_anon_211026.xlsx"
 
 # Previous dataset — used only to keep existing codes stable.
 OLD_RAW = ROOT / "df_flat_clean_121026.xlsx"
@@ -75,6 +86,9 @@ def main():
     for n in sorted(set(names) - set(trustee)):
         trustee[n] = f"P{nxt:03d}"
         nxt += 1
+    # nxt is reused for H-codes below; keep the trustee counter separately
+    # so the neemanim block (further down) can continue the P-namespace.
+    next_p = nxt
 
     # --- debtors (ID number) -> H-codes, stable per person ---
     # IDs shorter than MIN_ID_DIGITS are placeholders shared by unrelated
@@ -136,11 +150,30 @@ def main():
         anon.to_excel(w, sheet_name="נתונים", index=False)
         leg.to_excel(w, sheet_name="מקראה", index=False)
 
+    # --- neemanim table (optional) -> anonymized trustee codes ---
+    n_rows = 0
+    if NEEMANIM_RAW.exists():
+        nee = pd.read_excel(NEEMANIM_RAW)
+        if "full_name_neeman" not in nee.columns:
+            raise ValueError(f"{NEEMANIM_RAW.name} missing full_name_neeman column")
+        # Names appearing here but not in the flat file get a fresh P-code
+        # drawn from the same namespace, so we never leak a real name.
+        unknown = sorted(set(nee["full_name_neeman"].dropna()) - set(trustee))
+        for n in unknown:
+            trustee[n] = f"P{next_p:03d}"
+            next_p += 1
+        nee["full_name_neeman"] = nee["full_name_neeman"].map(trustee)
+        nee = nee.drop(columns=[c for c in ["id_neeman_clean"] if c in nee.columns])
+        assert not nee.isin(list(names)).any().any(), "trustee name leaked into neemanim"
+        nee.to_excel(NEEMANIM_OUT, index=False)
+        n_rows = len(nee)
+
     # --- the key (טבלת התממה) ---
     rev_t = pd.DataFrame(sorted(trustee.items(), key=lambda kv: kv[1]),
                          columns=["שם נאמן", "קוד"])
     n_cases = pd.concat([df["neeman_1"], df["neeman_2"]]).value_counts()
-    rev_t["מספר הופעות"] = rev_t["שם נאמן"].map(n_cases).astype(int)
+    # Trustees added from the neemanim file don't appear in neeman_1/neeman_2.
+    rev_t["מספר הופעות"] = rev_t["שם נאמן"].map(n_cases).fillna(0).astype(int)
     rev_t["חדש בגרסה זו"] = ~rev_t["שם נאמן"].isin(list(old_trustee))
     rev_h = (df[valid].groupby("id_hayav").size().rename("מספר תיקים").reset_index()
              .assign(קוד=lambda d: d["id_hayav"].map(id_code))
@@ -158,7 +191,10 @@ def main():
     print(f"trustees={len(trustee)} (new={int(rev_t['חדש בגרסה זו'].sum())})")
     print(f"debtors={len(id_code)} (in >1 case={(rev_h['מספר תיקים'] > 1).sum()})")
     print(f"cases={len(tik_code)}  (no person code, placeholder ID: {(~valid).sum()})")
-    print(f"wrote {OUT.name} and {KEY.name}")
+    if n_rows:
+        print(f"wrote {OUT.name}, {NEEMANIM_OUT.name} and {KEY.name} (neemanim rows={n_rows})")
+    else:
+        print(f"wrote {OUT.name} and {KEY.name}  ({NEEMANIM_RAW.name} not found, skipped)")
 
 
 if __name__ == "__main__":

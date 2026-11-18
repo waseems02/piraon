@@ -18,3 +18,4 @@ df_flat_clean_211026.xlsx
 df_flat_clean_121026.xlsx
 df_flat_Anonymous.csv
 .df_flat_*.parquet
+.df_neemanim_*.parquet

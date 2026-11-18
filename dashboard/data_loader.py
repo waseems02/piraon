@@ -5,12 +5,18 @@ import streamlit as st
 
 DATA_DIR = Path(__file__).resolve().parent.parent
 
-# The dashboard reads ONLY the anonymized file produced by
-# scripts/anonymize.py.  It contains no names, ID numbers, case numbers or
+# The dashboard reads ONLY the anonymized files produced by
+# scripts/anonymize.py.  They contain no names, ID numbers, case numbers or
 # dates of birth — trustees are P###, debtors H#####, cases T#####.
 CLEAN_FILE = DATA_DIR / "df_flat_anon_211026.xlsx"
 CLEAN_SHEET = "נתונים"
 CLEAN_CACHE = DATA_DIR / ".df_flat_anon_211026.parquet"
+
+# Pre-computed trustees table (optional). When present, we load it directly
+# and skip the on-the-fly aggregation in load_neemanim(); otherwise we fall
+# back to computing from the flat file.
+NEEMANIM_FILE = DATA_DIR / "df_neemanim_anon_211026.xlsx"
+NEEMANIM_CACHE = DATA_DIR / ".df_neemanim_anon_211026.parquet"
 
 # app.py compares this to its own constant and re-imports this module (and
 # the tabs) if a server process is still holding an older copy in memory.
@@ -118,9 +124,32 @@ def load_flat() -> pd.DataFrame:
     return df
 
 
+def _read_neemanim_file() -> pd.DataFrame:
+    if _parquet_fresh(NEEMANIM_CACHE, NEEMANIM_FILE):
+        return pd.read_parquet(NEEMANIM_CACHE)
+    df = pd.read_excel(NEEMANIM_FILE)
+    # Defence in depth: the real-name column is "id_neeman_clean" in the raw
+    # file; after anonymization it should be gone.  Drop it if it survived.
+    df = df.drop(columns=[c for c in ("id_neeman_clean",) if c in df.columns])
+    try:
+        df.to_parquet(NEEMANIM_CACHE, index=False)
+    except Exception:
+        pass
+    return df
+
+
 @st.cache_data(show_spinner="מחשב נאמנים…")
 def load_neemanim() -> pd.DataFrame:
-    # load_flat() is cached, so this call is near-instant after first load.
+    if NEEMANIM_FILE.exists():
+        df = _read_neemanim_file()
+        for m in MAHOZ_COLS:
+            if m not in df.columns:
+                df[m] = 0.0
+            df[m] = df[m].fillna(0.0)
+        return df
+
+    # Fallback: compute aggregates from the flat file. load_flat() is cached,
+    # so this call is near-instant after first load.
     flat = load_flat()
     d = flat.dropna(subset=["neeman"]).copy()
 
