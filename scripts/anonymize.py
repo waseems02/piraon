@@ -20,6 +20,7 @@ Removed outright: dob (age columns remain), first_date, last_date.
 Run from the project root:  py -3.13 scripts/anonymize.py
 """
 import io
+import re
 import sys
 from pathlib import Path
 
@@ -65,6 +66,14 @@ def _old_codes():
     assert not ids["id_hayav"].duplicated().any(), "old id codes inconsistent"
     id_num = dict(zip(ids["id_hayav"], ids["id_Anonymous"].str[1:].astype(int)))
     return trustee, id_num
+
+
+def _norm_name(name) -> str:
+    """Spelling-insensitive key for a trustee name: drops professional titles
+    and punctuation, ignores word order."""
+    s = re.sub(r'עו"ד|עו״ד|עוה"ד|רו"ח|רו״ח|ד"ר|ד״ר', " ", str(name))
+    s = re.sub(r'["\'״׳\-.,()]', " ", s)
+    return " ".join(sorted(s.split()))
 
 
 def _salary_bin(s: pd.Series) -> pd.Series:
@@ -152,19 +161,39 @@ def main():
 
     # --- neemanim table (optional) -> anonymized trustee codes ---
     n_rows = 0
+    trustee_note = {}
     if NEEMANIM_RAW.exists():
         nee = pd.read_excel(NEEMANIM_RAW)
         if "full_name_neeman" not in nee.columns:
             raise ValueError(f"{NEEMANIM_RAW.name} missing full_name_neeman column")
-        # Names appearing here but not in the flat file get a fresh P-code
-        # drawn from the same namespace, so we never leak a real name.
+        # Names written differently from the flat file (a title like עו"ד,
+        # punctuation, word order) are the same trustee: reuse that P-code.
+        # Only an unambiguous normalized match counts.  Anything else gets a
+        # fresh P-code from the same namespace; near-matches are flagged in
+        # the key for a human to check.
+        flat_by_norm = {}
+        for n in names:
+            flat_by_norm.setdefault(_norm_name(n), set()).add(trustee[n])
         unknown = sorted(set(nee["full_name_neeman"].dropna()) - set(trustee))
         for n in unknown:
+            hits = flat_by_norm.get(_norm_name(n), set())
+            if len(hits) == 1:
+                trustee[n] = next(iter(hits))
+                trustee_note[n] = "כתיב אחר של אותו נאמן (זוהה אוטומטית)"
+                continue
             trustee[n] = f"P{next_p:03d}"
             next_p += 1
+            toks = set(_norm_name(n).split())
+            near = sorted({c for k, cs in flat_by_norm.items()
+                           if toks and (toks <= set(k.split()) or set(k.split()) <= toks)
+                           for c in cs})
+            trustee_note[n] = ("מופיע רק בטבלת הנאמנים"
+                               + (f" — ייתכן שזהה ל-{', '.join(near)}, לבדוק" if near else ""))
         nee["full_name_neeman"] = nee["full_name_neeman"].map(trustee)
         nee = nee.drop(columns=[c for c in ["id_neeman_clean"] if c in nee.columns])
-        assert not nee.isin(list(names)).any().any(), "trustee name leaked into neemanim"
+        all_names = [str(x) for x in set(names) | set(unknown)]
+        assert not nee.astype(str).isin(all_names).any().any(), \
+            "trustee name leaked into neemanim"
         nee.to_excel(NEEMANIM_OUT, index=False)
         n_rows = len(nee)
 
@@ -175,6 +204,7 @@ def main():
     # Trustees added from the neemanim file don't appear in neeman_1/neeman_2.
     rev_t["מספר הופעות"] = rev_t["שם נאמן"].map(n_cases).fillna(0).astype(int)
     rev_t["חדש בגרסה זו"] = ~rev_t["שם נאמן"].isin(list(old_trustee))
+    rev_t["הערה"] = rev_t["שם נאמן"].map(trustee_note).fillna("")
     rev_h = (df[valid].groupby("id_hayav").size().rename("מספר תיקים").reset_index()
              .assign(קוד=lambda d: d["id_hayav"].map(id_code))
              .rename(columns={"id_hayav": "תעודת זהות"})
@@ -182,7 +212,7 @@ def main():
     rev_k = (pd.DataFrame(sorted(tik_code.items()), columns=["מספר תיק", "קוד"])
              [["קוד", "מספר תיק"]])
     with pd.ExcelWriter(KEY, engine="openpyxl") as w:
-        rev_t[["קוד", "שם נאמן", "מספר הופעות", "חדש בגרסה זו"]].to_excel(
+        rev_t[["קוד", "שם נאמן", "מספר הופעות", "חדש בגרסה זו", "הערה"]].to_excel(
             w, sheet_name="נאמנים", index=False)
         rev_h.to_excel(w, sheet_name="חייבים", index=False)
         rev_k.to_excel(w, sheet_name="תיקים", index=False)

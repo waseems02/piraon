@@ -2,8 +2,26 @@ import streamlit as st
 import pandas as pd
 
 
+# Anonymous identifiers — shown first so each row can be traced back
+# (via the private טבלת התממה) without exposing any real identifier.
+ID_COLS_DISPLAY = {
+    "tik_code": "קוד תיק (T)",
+    "hayav_code": "קוד חייב (H)",
+    "neeman": "נאמן משויך (P)",
+    "neeman_1": "נאמן 1 (P)",
+    "neeman_2": "נאמן 2 (P)",
+}
+
 CASE_COLS_DISPLAY = {
-    "neeman": "נאמן",
+    **ID_COLS_DISPLAY,
+    "year": "שנת פתיחה",
+    "d_tzav_ptichat_halichim": "תאריך צו פתיחה",
+    "d_tzav_shikum": "תאריך צו שיקום",
+    "age_ptichat_hlichim": "גיל בפתיחה",
+    "num_children_minor": "ילדים קטינים",
+    "income_salery": "הכנסה (₪)",
+    "first_payment": "תשלום ראשון (₪)",
+    "last_payment": "תשלום אחרון (₪)",
     "duration_stage1_months": "משך שלב א' (חודשים)",
     "mahoz": "מחוז",
     "gender_label": "מגדר",
@@ -63,26 +81,38 @@ def _render_cases(df: pd.DataFrame):
     sub = sub[(sub["duration_stage1_months"].fillna(-1).between(dur_range[0], dur_range[1])) |
               sub["duration_stage1_months"].isna()]
 
-    q = st.text_input("חיפוש חופשי (נאמן / סטטוס / תוצאה)", key="dt_q")
+    q = st.text_input(
+        "חיפוש חופשי (קוד תיק T / קוד חייב H / נאמן P / סטטוס / תוצאה)",
+        key="dt_q")
     if q:
-        mask = (
-            sub["neeman"].fillna("").str.contains(q, na=False)
-            | sub["status_d_15032026"].fillna("").str.contains(q, na=False)
-            | sub["outcome"].fillna("").str.contains(q, na=False)
-        )
+        search_cols = list(ID_COLS_DISPLAY) + ["status_d_15032026", "outcome"]
+        mask = pd.Series(False, index=sub.index)
+        for c in search_cols:
+            mask |= sub[c].astype("string").fillna("").str.contains(q, case=False, regex=False)
         sub = sub[mask]
+
+    show_all = st.toggle("הצג את כל העמודות בקובץ", value=True, key="dt_all_cols")
 
     st.caption(f"מציג {len(sub):,} תיקים")
 
-    display = sub[list(CASE_COLS_DISPLAY.keys())].rename(columns=CASE_COLS_DISPLAY)
+    cols = list(CASE_COLS_DISPLAY)
+    if show_all:
+        # Everything in the frame is already anonymized; "num_tik" is just an
+        # alias of tik_code, so skip it to avoid a duplicate column.
+        cols += [c for c in sub.columns if c not in CASE_COLS_DISPLAY and c != "num_tik"]
+    display = sub[cols].rename(columns=CASE_COLS_DISPLAY)
     st.dataframe(
         display,
         use_container_width=True,
         hide_index=True,
-        height=360,
+        height=420,
         column_config={
             "משך שלב א' (חודשים)": st.column_config.NumberColumn(
                 "משך שלב א' (חודשים)", format="%.1f"),
+            "גיל בפתיחה": st.column_config.NumberColumn("גיל בפתיחה", format="%d"),
+            "הכנסה (₪)": st.column_config.NumberColumn("הכנסה (₪)", format="localized"),
+            "תאריך צו פתיחה": st.column_config.DateColumn("תאריך צו פתיחה", format="DD/MM/YYYY"),
+            "תאריך צו שיקום": st.column_config.DateColumn("תאריך צו שיקום", format="DD/MM/YYYY"),
         },
     )
 
@@ -102,35 +132,61 @@ def _render_neemanim(df_n: pd.DataFrame):
     sub = df_n[df_n["total_valid_cases"] >= min_cases].copy()
     sub = sub[(sub["dropout_rate_full"] * 100).between(drop_range[0], drop_range[1])]
 
-    q = st.text_input("חיפוש שם נאמן", key="dt_n_q")
+    q = st.text_input("חיפוש קוד נאמן (P)", key="dt_n_q")
     if q:
-        sub = sub[sub["full_name_neeman"].fillna("").str.contains(q, na=False)]
+        sub = sub[sub["full_name_neeman"].fillna("").str.contains(q, case=False, regex=False)]
 
     st.caption(f"מציג {len(sub):,} נאמנים")
 
-    display_cols = [
-        "full_name_neeman", "total_valid_cases", "dropout_rate_full", "dropout_rate_2020",
-        "pct_150", "pct_siyua", "pct_arab",
-        "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב",
-    ]
-    show = sub[display_cols].copy()
-    for c in ["dropout_rate_full", "dropout_rate_2020", "pct_150", "pct_siyua", "pct_arab",
-              "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]:
-        show[c] = (show[c] * 100).round(1)
-
-    show.columns = [
-        "נאמן", "תיקים", "% נשירה כללי", "% נשירה 2020",
-        "% תשלום 150", "% סיוע", "% ערבי",
-        "% ב\"ש", "% חיפה", "% ירושלים", "% ת\"א",
-    ]
+    # Every column of the trustees table (df_neemanim_anon_211026.xlsx);
+    # columns missing from the computed fallback table are skipped.
+    show = sub[[c for c in NEEMANIM_COLS_DISPLAY if c in sub.columns]].copy()
+    for c in NEEMANIM_PCT_COLS:
+        if c in show.columns:
+            show[c] = (show[c] * 100).round(1)
+    if "notable_shift" in show.columns:
+        show["notable_shift"] = show["notable_shift"].map({1: "כן", 0: "לא"})
+    show = show.rename(columns=NEEMANIM_COLS_DISPLAY)
 
     st.dataframe(
-        show, use_container_width=True, hide_index=True, height=360,
+        show, use_container_width=True, hide_index=True, height=420,
         column_config={
             "% נשירה כללי": st.column_config.ProgressColumn(
                 "% נשירה כללי", format="%.1f%%", min_value=0, max_value=100),
             "% נשירה 2020": st.column_config.ProgressColumn(
                 "% נשירה 2020", format="%.1f%%", min_value=0, max_value=100),
             "תיקים": st.column_config.NumberColumn("תיקים", format="%d"),
+            "z נשירה כללי": st.column_config.NumberColumn("z נשירה כללי", format="%.2f"),
+            "z נשירה 2020": st.column_config.NumberColumn("z נשירה 2020", format="%.2f"),
+            "הפרש z": st.column_config.NumberColumn("הפרש z", format="%.2f"),
+            "דירוג כללי": st.column_config.NumberColumn("דירוג כללי", format="%d"),
+            "דירוג 2020": st.column_config.NumberColumn("דירוג 2020", format="%d"),
+            "שינוי בדירוג": st.column_config.NumberColumn("שינוי בדירוג", format="%d"),
         },
     )
+
+
+NEEMANIM_COLS_DISPLAY = {
+    "full_name_neeman": "נאמן (P)",
+    "gender": "מגדר נאמן",
+    "total_valid_cases": "תיקים",
+    "dropout_rate_full": "% נשירה כללי",
+    "dropout_rate_2020": "% נשירה 2020",
+    "bitul_2020": "ביטולים 2020",
+    "z_dropout_full": "z נשירה כללי",
+    "z_dropout_2020": "z נשירה 2020",
+    "z_diff": "הפרש z",
+    "rank_full": "דירוג כללי",
+    "rank_2020": "דירוג 2020",
+    "rank_change": "שינוי בדירוג",
+    "notable_shift": "שינוי בולט",
+    "pct_150": "% תשלום 150",
+    "pct_siyua": "% סיוע",
+    "pct_arab": "% ערבי",
+    "mahoz_באר שבע": "% ב\"ש",
+    "mahoz_חיפה": "% חיפה",
+    "mahoz_ירושלים": "% ירושלים",
+    "mahoz_תל אביב": "% ת\"א",
+}
+NEEMANIM_PCT_COLS = ["dropout_rate_full", "dropout_rate_2020", "pct_150", "pct_siyua",
+                     "pct_arab", "mahoz_באר שבע", "mahoz_חיפה", "mahoz_ירושלים", "mahoz_תל אביב"]

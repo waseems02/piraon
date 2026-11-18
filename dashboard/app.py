@@ -10,7 +10,7 @@ import plotly.io as pio
 # modules in memory.  After a data/code update a long-lived server can keep
 # running the old loader (it crashed looking for the removed 121026 file), so
 # drop stale project modules once and import them fresh.
-_DATA_VERSION = "211026"
+_DATA_VERSION = "211026-2"
 _loaded = sys.modules.get("data_loader")
 if _loaded is not None and getattr(_loaded, "DATA_VERSION", None) != _DATA_VERSION:
     for _name in [n for n in sys.modules
