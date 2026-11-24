@@ -10,7 +10,7 @@ import plotly.io as pio
 # modules in memory.  After a data/code update a long-lived server can keep
 # running the old loader (it crashed looking for the removed 121026 file), so
 # drop stale project modules once and import them fresh.
-_DATA_VERSION = "211026-2"
+_DATA_VERSION = "211026-3"
 _loaded = sys.modules.get("data_loader")
 if _loaded is not None and getattr(_loaded, "DATA_VERSION", None) != _DATA_VERSION:
     for _name in [n for n in sys.modules
@@ -18,7 +18,7 @@ if _loaded is not None and getattr(_loaded, "DATA_VERSION", None) != _DATA_VERSI
         del sys.modules[_name]
     st.cache_data.clear()
 
-from data_loader import load_flat, load_neemanim, apply_filters
+from data_loader import load_flat, load_neemanim, apply_filters, AGE_UNKNOWN
 from tabs import home, overview, dropouts, completions, risk_factors, durations, trustees, data_table, crosstab
 
 
@@ -570,6 +570,8 @@ selected_siyua = st.sidebar.multiselect("סיוע משפטי", siyua_opts, defau
 # Age bins are ordered manually (Hebrew sort is not natural here)
 AGE_ORDER = ["19-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80+"]
 age_bins_all = [b for b in AGE_ORDER if b in df_flat["age_bin"].dropna().unique().tolist()]
+if df_flat["age_bin"].isna().any():
+    age_bins_all.append(AGE_UNKNOWN)
 selected_age_bins = st.sidebar.multiselect("קבוצת גיל", age_bins_all, default=age_bins_all)
 
 filters = {

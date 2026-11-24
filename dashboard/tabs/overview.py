@@ -10,8 +10,7 @@ DIMENSIONS = {
     "מחוז": "mahoz",
     "מגדר": "gender_label",
     "שנת פתיחה": "year",
-    "תוצאה": "outcome",
-    "סטטוס": "status_d_15032026",
+    "סטטוס": "outcome",
     "קבוצת גיל": "age_bin",
     "מגזר": "sector_label",
     "סיוע משפטי": "siyua_label",
@@ -43,8 +42,10 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     c2.metric("סגורים", f"{closed / total * 100:.1f}%" if total else "—")
     c3.metric("הפטר לאלתר", f"{immediate / total * 100:.1f}%" if total else "—")
     c4.metric("שיעור נשירה (לפני צו שיקום)", f"{dropouts / total * 100:.1f}%" if total else "—")
-    c5.metric("חציון משך שלב א' (חודשים)",
-              f"{median_stage1:.1f}" if pd.notna(median_stage1) else "—")
+    c5.metric("חציון שלב ביניים (חודשים)",
+              f"{median_stage1:.1f}" if pd.notna(median_stage1) else "—",
+              help="מצו פתיחת הליכים ועד צו שיקום או הפטר. "
+                   "לא כולל תיקים שבוטלו לפני צו שיקום ותיקים שעדיין בשלב הביניים.")
 
     st.markdown("---")
 
@@ -55,12 +56,20 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
         dim = DIMENSIONS[dim_label]
         counts = df[dim].value_counts(dropna=False).reset_index()
         counts.columns = [dim_label, "תיקים"]
-        counts["אחוז %"] = (counts["תיקים"] / counts["תיקים"].sum() * 100).round(1)
+        if counts[dim_label].isna().any():
+            counts[dim_label] = counts[dim_label].astype(object).fillna("לא ידוע")
+        share = counts["תיקים"] / counts["תיקים"].sum() * 100
+        counts["אחוז %"] = share.round(1)
         with main:
             if view == "chart":
                 if chart_type == "עמודות":
-                    fig = px.bar(counts, x=dim_label, y="תיקים", text="תיקים", color=dim_label)
+                    # A tiny group (e.g. the 5 cases without age) must not read as "0.0%".
+                    labels = ["<0.1%" if p < 0.1 else f"{p:.1f}%" for p in share]
+                    fig = px.bar(counts.assign(**{"אחוז %": share}),
+                                 x=dim_label, y="אחוז %", text=labels, color=dim_label,
+                                 hover_data={"אחוז %": ":.1f", "תיקים": ":,"})
                     fig.update_layout(showlegend=False, height=300)
+                    fig.update_yaxes(ticksuffix="%", title_text="")
                     wrap_x_labels(fig)
                 else:
                     fig = px.pie(counts, names=dim_label, values="תיקים", hole=0.4)

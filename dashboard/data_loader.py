@@ -20,13 +20,17 @@ NEEMANIM_CACHE = DATA_DIR / ".df_neemanim_anon_211026.parquet"
 
 # app.py compares this to its own constant and re-imports this module (and
 # the tabs) if a server process is still holding an older copy in memory.
-DATA_VERSION = "211026-2"
+DATA_VERSION = "211026-3"
 
 CUTOFF_DATE = pd.Timestamp("2026-03-15")
 
 GENDER_MAP = {"ז": "גבר", "נ": "אישה"}
 SECTOR_MAP = {0: "יהודי", 1: "ערבי"}
 SIYUA_MAP = {0: "ללא סיוע משפטי", 1: "עם סיוע משפטי"}
+# Filter-only label for cases with no age, so "everything selected" really
+# means every case.  age_bin itself stays empty for the statistics.
+AGE_UNKNOWN = "לא ידוע"
+
 NECHUT_MAP = {0: "ללא נכות כללית", 1: "עם נכות כללית"}
 
 CLOSED_STATUSES = {"סגור", "הפטר לאלתר", "הפטר", "ביטול"}
@@ -44,11 +48,11 @@ _OUTCOME_FROM_REASON = {
     "ביטול לאחר צו שיקום": "ביטול לאחר צו שיקום",
     "ביטול": "ביטול לפני צו שיקום",
     "ניתן צו שיקום כלכלי": "פתוח — צו שיקום",
-    "ניתן צו פתיחת הליכים": "פתוח — שלב א'",
+    "ניתן צו פתיחת הליכים": "פתוח — שלב ביניים",
 }
 _OUTCOME_FROM_STATUS = {
     "ניתן צו שיקום כלכלי": "פתוח — צו שיקום",
-    "ניתן צו פתיחת הליכים": "פתוח — שלב א'",
+    "ניתן צו פתיחת הליכים": "פתוח — שלב ביניים",
 }
 
 
@@ -78,6 +82,26 @@ def _read_clean() -> pd.DataFrame:
     return df
 
 
+def _interim_months(df: pd.DataFrame) -> pd.Series:
+    """Months in שלב הביניים: from the opening order until shikum or hefter.
+
+    - הפטר לאלתר: until the discharge (d_last_status).  Their d_tzav_shikum is
+      a payments-order date; they did not move on to a rehabilitation plan.
+    - Reached shikum (open, הפטר, later cancelled): until d_tzav_shikum.
+    - הפטר with no shikum date: until the discharge.
+    - Cancelled before shikum / still in the interim stage: not measured.
+    """
+    reason = df["sibat_sgira_kidud_c"]
+    last = pd.to_datetime(df["d_last_status"], errors="coerce", dayfirst=True)
+    reached_shikum = reason.isin(
+        ["הפטר", "ביטול לאחר צו שיקום", "ניתן צו שיקום כלכלי"])
+
+    end = df["d_tzav_shikum"].where(reached_shikum)
+    end = end.fillna(last.where(reason == "הפטר"))
+    end = end.mask(reason == "הפטר לאלתר", last)
+    return (end - df["d_tzav_ptichat_halichim"]).dt.days / 30.44
+
+
 @st.cache_data(show_spinner="טוען נתונים…")
 def load_flat() -> pd.DataFrame:
     df = _read_clean()
@@ -98,8 +122,7 @@ def load_flat() -> pd.DataFrame:
     df["siyua_label"] = df["is_siyua_bin"].map(SIYUA_MAP).fillna("לא ידוע")
     df["nechut_label"] = df["has_nechut_klalit"].map(NECHUT_MAP).fillna("לא ידוע")
 
-    delta_days = (df["d_tzav_shikum"] - df["d_tzav_ptichat_halichim"]).dt.days
-    df["duration_stage1_months"] = delta_days / 30.44
+    df["duration_stage1_months"] = _interim_months(df)
 
     time_to_cutoff_days = (CUTOFF_DATE - df["d_tzav_ptichat_halichim"]).dt.days
     df["months_since_opening"] = time_to_cutoff_days / 30.44
@@ -204,7 +227,7 @@ def apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
     if filters.get("siyua"):
         out = out[out["siyua_label"].isin(filters["siyua"])]
     if filters.get("age_bins"):
-        out = out[out["age_bin"].isin(filters["age_bins"])]
+        out = out[out["age_bin"].fillna(AGE_UNKNOWN).isin(filters["age_bins"])]
     return out
 
 

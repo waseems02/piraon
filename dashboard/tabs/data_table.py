@@ -22,7 +22,7 @@ CASE_COLS_DISPLAY = {
     "income_salery": "הכנסה (₪)",
     "first_payment": "תשלום ראשון (₪)",
     "last_payment": "תשלום אחרון (₪)",
-    "duration_stage1_months": "משך שלב א' (חודשים)",
+    "duration_stage1_months": "משך שלב ביניים (חודשים)",
     "mahoz": "מחוז",
     "gender_label": "מגדר",
     "age_bin": "קבוצת גיל",
@@ -71,7 +71,7 @@ def _render_cases(df: pd.DataFrame):
         min_dur, max_dur = 0, 100
         if df["duration_stage1_months"].notna().any():
             max_dur = int(df["duration_stage1_months"].max()) + 1
-        dur_range = st.slider("טווח משך שלב א' (חודשים)", 0, max_dur, (0, max_dur), key="dt_dur")
+        dur_range = st.slider("טווח משך שלב ביניים (חודשים)", 0, max_dur, (0, max_dur), key="dt_dur")
 
     sub = df.copy()
     if sel_out != "הכל":
@@ -107,8 +107,8 @@ def _render_cases(df: pd.DataFrame):
         hide_index=True,
         height=420,
         column_config={
-            "משך שלב א' (חודשים)": st.column_config.NumberColumn(
-                "משך שלב א' (חודשים)", format="%.1f"),
+            "משך שלב ביניים (חודשים)": st.column_config.NumberColumn(
+                "משך שלב ביניים (חודשים)", format="%.1f"),
             "גיל בפתיחה": st.column_config.NumberColumn("גיל בפתיחה", format="%d"),
             "הכנסה (₪)": st.column_config.NumberColumn("הכנסה (₪)", format="localized"),
             "תאריך צו פתיחה": st.column_config.DateColumn("תאריך צו פתיחה", format="DD/MM/YYYY"),

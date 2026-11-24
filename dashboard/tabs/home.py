@@ -6,12 +6,12 @@ import pandas as pd
 import streamlit as st
 
 
-ISRAEL_IMAGE_PATH = Path(__file__).resolve().parent.parent / "Israel_image.jpg"
+MOJ_LOGO_PATH = Path(__file__).resolve().parent.parent / "moj_logo.png"
 
 
-def _israel_image_data_uri() -> str:
-    data = ISRAEL_IMAGE_PATH.read_bytes()
-    return f"data:image/jpeg;base64,{base64.b64encode(data).decode('ascii')}"
+def _moj_logo_data_uri() -> str:
+    data = MOJ_LOGO_PATH.read_bytes()
+    return f"data:image/png;base64,{base64.b64encode(data).decode('ascii')}"
 
 
 HERO_CSS = """
@@ -23,10 +23,22 @@ HERO_CSS = """
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 40px 30px 20px 30px;
+    justify-content: flex-start;
+    padding: 8px 30px 20px 30px;
     direction: rtl;
     text-align: center;
+}
+
+/* Ministry of Justice logo as the page header; the titles sit below it. */
+.home-header-logo {
+    display: block;
+    width: 170px;
+    max-width: 45vw;
+    height: auto;
+    margin: 0 auto 64px auto;
+}
+@media (max-width: 760px) {
+    .home-header-logo { width: 130px; margin-bottom: 40px; }
 }
 
 .home-eyebrow {
@@ -121,13 +133,10 @@ HERO_CSS = """
 
 def render(df_full: pd.DataFrame, df_neemanim: pd.DataFrame):
     st.markdown(HERO_CSS, unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="israel-corner"><img src="{_israel_image_data_uri()}" alt="Israel"></div>',
-        unsafe_allow_html=True,
-    )
 
     html = dedent("""\
 <div class="home-content">
+<img class="home-header-logo" src="{logo}" alt="משרד המשפטים">
 <h1 class="home-title">חדלות פירעון <span class="accent">בישראל</span></h1>
 <div class="home-subtitle">דאשבורד אינטראקטיבי חדל"פ</div>
 <div class="home-divider"></div>
@@ -135,5 +144,5 @@ def render(df_full: pd.DataFrame, df_neemanim: pd.DataFrame):
 <div class="home-years">2020 — 2021 — 2022</div>
 <div class="home-credits">וסים סעדי <span class="credits-dot">·</span> שלומית כהן</div>
 </div>
-""")
+""").replace("{logo}", _moj_logo_data_uri())
     st.markdown(html, unsafe_allow_html=True)

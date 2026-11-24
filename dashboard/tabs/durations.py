@@ -22,8 +22,9 @@ DIMENSIONS = {
 def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     st.subheader("משך זמן ותשלומים")
     st.caption(
-        "יעד בחוק: שלב א' — 12 חודשים; שלב ב' — 36 חודשים. "
-        "המצגת מצאה: חציון בפועל לצו שיקום — 22 חודשים; להפטר — 52."
+        "יעד בחוק: שלב ביניים — 12 חודשים; שלב ב' — 36 חודשים. "
+        "שלב ביניים נמדד מצו פתיחת הליכים ועד צו שיקום או הפטר. "
+        "במצגת, על תת־קבוצה של תיקים ותיקים: חציון לצו שיקום — 22 חודשים; להפטר — 52."
     )
 
     if df.empty:
@@ -38,8 +39,8 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("תיקים עם משך מדיד", f"{n_have:,}")
-    c2.metric("חציון שלב א' (חודשים)", f"{median_d:.1f}" if n_have else "—")
-    c3.metric("ממוצע שלב א' (חודשים)", f"{mean_d:.1f}" if n_have else "—")
+    c2.metric("חציון שלב ביניים (חודשים)", f"{median_d:.1f}" if n_have else "—")
+    c3.metric("ממוצע שלב ביניים (חודשים)", f"{mean_d:.1f}" if n_have else "—")
     c4.metric("% מעל 12 חודשים", f"{over_12:.1f}%")
 
     if n_have == 0:
@@ -48,10 +49,11 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
 
     st.markdown("---")
 
-    with section("התפלגות משך שלב א'", key="du_dist") as (side, main, view):
+    with section("התפלגות משך שלב ביניים", key="du_dist") as (side, main, view):
         with side:
             dim_label = st.selectbox("פילוח לפי", ["ללא"] + list(DIMENSIONS.keys()), key="du_dim")
-            chart_type = st.radio("סוג גרף", ["היסטוגרמה", "Boxplot", "Violin"], key="du_ct")
+            # Boxplot is the default view; the histogram is the alternative.
+            chart_type = st.radio("סוג גרף", ["Boxplot", "היסטוגרמה"], key="du_ct")
         with main:
             if view == "chart":
                 if dim_label == "ללא":
@@ -60,11 +62,8 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                         fig.add_vline(x=12, line_dash="dash", line_color="red",
                                       annotation_text="יעד החוק (12 חודשים)")
                         fig.update_layout(bargap=0.05)
-                    elif chart_type == "Boxplot":
-                        fig = px.box(have, y="duration_stage1_months", points="outliers")
                     else:
-                        fig = px.violin(have, y="duration_stage1_months",
-                                        box=True, points="outliers")
+                        fig = px.box(have, y="duration_stage1_months", points="outliers")
                 else:
                     dim = DIMENSIONS[dim_label]
                     if chart_type == "היסטוגרמה":
@@ -72,12 +71,9 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
                                            nbins=40, barmode="overlay", opacity=0.6)
                         fig.add_vline(x=12, line_dash="dash", line_color="red",
                                       annotation_text="יעד החוק")
-                    elif chart_type == "Boxplot":
+                    else:
                         fig = px.box(have, x=dim, y="duration_stage1_months",
                                      color=dim, points="outliers")
-                    else:
-                        fig = px.violin(have, x=dim, y="duration_stage1_months",
-                                        color=dim, box=True, points="outliers")
                 fig.update_layout(height=320, xaxis_title="", yaxis_title="חודשים")
                 st.plotly_chart(fig, use_container_width=True)
             else:
