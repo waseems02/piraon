@@ -20,7 +20,7 @@ NEEMANIM_CACHE = DATA_DIR / ".df_neemanim_anon_211026.parquet"
 
 # app.py compares this to its own constant and re-imports this module (and
 # the tabs) if a server process is still holding an older copy in memory.
-DATA_VERSION = "211026-3"
+DATA_VERSION = "211026-4"
 
 CUTOFF_DATE = pd.Timestamp("2026-03-15")
 

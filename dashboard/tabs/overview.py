@@ -23,8 +23,7 @@ DIMENSIONS = {
 def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
     st.subheader("סקירה — מי מתחיל את ההליך")
     st.caption(
-        "פרופיל דמוגרפי מלא זמין כאן: גיל, מגזר, סיוע משפטי, נכות, שכר וגובה תשלום. "
-        "לניתוח מעמיק ומודלים סטטיסטיים — עמוד 5 במצגת."
+        "פרופיל דמוגרפי מלא זמין כאן: גיל, מגזר, סיוע משפטי, נכות, שכר וגובה תשלום."
     )
 
     if df.empty:
@@ -92,35 +91,19 @@ def render(df: pd.DataFrame, df_neemanim: pd.DataFrame):
         y = df[df["mahoz"].isin(mahoz_filter)].groupby(["year", "mahoz"]).size().reset_index(name="תיקים")
         with main:
             if view == "chart":
-                fig = px.line(y, x="year", y="תיקים", color="mahoz", markers=True)
-                fig.update_layout(height=280, xaxis_title="שנה", legend_title="מחוז")
+                # Years as categories: a numeric axis drew half-year ticks (2020.5).
+                bars = y.assign(year=y["year"].astype(int).astype(str))
+                fig = px.bar(bars, x="year", y="תיקים", color="mahoz", barmode="group",
+                             text=bars["תיקים"].map("{:,}".format))
+                fig.update_traces(textposition="outside", cliponaxis=False)
+                fig.update_layout(height=320, xaxis_title="שנה", yaxis_title="תיקים",
+                                  legend_title="מחוז")
+                fig.update_xaxes(type="category")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 pivot = y.pivot(index="year", columns="mahoz", values="תיקים").fillna(0).astype(int)
                 pivot["סה\"כ"] = pivot.sum(axis=1)
                 st.dataframe(pivot, use_container_width=True)
-
-    st.markdown("---")
-
-    with section("ערים עם הכי הרבה תיקים", key="ov_cities") as (side, main, view):
-        with side:
-            top_n = st.slider("Top N ערים", 5, 30, 15, key="ov_topn")
-        c = df["city"].value_counts().head(top_n).reset_index()
-        c.columns = ["עיר", "תיקים"]
-        c["אחוז %"] = (c["תיקים"] / len(df) * 100).round(1)
-        with main:
-            if view == "chart":
-                fig = px.bar(c, y="עיר", x="תיקים", orientation="h", text="תיקים",
-                             color="תיקים", color_continuous_scale="Blues")
-                fig.update_layout(height=max(260, 18 * top_n),
-                                  yaxis={"categoryorder": "total ascending"},
-                                  coloraxis_showscale=False)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                styled_dataframe(c, column_config={
-                    "אחוז %": st.column_config.ProgressColumn(
-                        "אחוז %", format="%.1f%%", min_value=0, max_value=100),
-                })
 
     st.markdown("---")
 
